@@ -8,7 +8,7 @@ use std::fmt::Write;
 
 use enigo::KeyboardControllable;
 
-use midir::{Ignore, MidiInput};
+use midir::{Ignore, MidiInput, MidiInputConnection};
 
 /// The amount of time to wait for a keyboard modifier to stick
 const MOD_DELAY_MS: u64 = 5;
@@ -17,7 +17,10 @@ const MOD_DELAY_MS: u64 = 5;
 const KEY_DELAY_MS: u64 = 40;
 
 /// The amount of time required for system events, such as Esc
-const SYS_DELAY_MS: u64 = 200;
+const SYS_DELAY_MS: u64 = 400;
+
+/// The name of the midi device we'll look to
+const MIDI_DEV_NAME: &str = "Launchkey Mini";
 
 #[derive(Debug, PartialEq)]
 enum MidiEvent {
@@ -67,7 +70,7 @@ fn parse_message(message: &[u8]) -> Result<MidiMessage, MidiError> {
 
 fn main() {
     list_devices().unwrap();
-    run().unwrap();
+    run(MIDI_DEV_NAME).unwrap();
 }
 
 fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Enigo) {
@@ -154,52 +157,75 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
     }
 }
 
-fn run() -> Result<(), Box<Error>> {
-    let mut keygen = enigo::Enigo::new();
-    let mut midi_in = MidiInput::new("keyboard-tweak")?;
-    midi_in.ignore(Ignore::None);
+fn run(midi_name: &str) -> Result<(), Box<Error>> {
+    let target_device_name = midi_name.to_owned();
 
-    println!("Connecting to {}", midi_in.port_name(0)?);
-    let _connection = midi_in.connect(
-        0,
-        "key monitor",
-        move |ts, raw_msg, _ignored| {
-            midi_callback(ts, raw_msg, &mut keygen);
-        },
-        (),
-    );
+    let mut device_idx: Option<usize> = None;
+
+    println!("Attempting to connect to {}", target_device_name);
+    let mut connection: Option<MidiInputConnection<()>> = None;
 
     loop {
+        let mut midi_in = MidiInput::new("keyboard-tweak")?;
+        midi_in.ignore(Ignore::None);
+
+        if let Some(idx) = device_idx {
+            match midi_in.port_name(idx) {
+                Err(_) => {
+                    device_idx = None;
+                    connection = None;
+                }
+                Ok(val) => if &val != &target_device_name {
+                    device_idx = None;
+                    connection = None;
+                },
+            }
+        } else {
+            device_idx = None;
+            connection = None;
+        };
+
+        if connection.is_none() {
+            println!(
+                "Recreating midi connection.  Looking for {}...",
+                target_device_name
+            );
+            for i in 0..midi_in.port_count() {
+                match midi_in.port_name(i) {
+                    Err(_) => (),
+                    Ok(name) => {
+                        if &name == &target_device_name {
+                            println!("Using device:{}", i);
+                            device_idx = Some(i);
+                        }
+                    }
+                }
+                println!("{}: {}", i, midi_in.port_name(i)?);
+            }
+        }
+
+        if connection.is_none() {
+            if let Some(idx) = device_idx {
+                let mut keygen = enigo::Enigo::new();
+                match midi_in.connect(
+                    idx,
+                    "key monitor",
+                    move |ts, raw_msg, _ignored| {
+                        midi_callback(ts, raw_msg, &mut keygen);
+                    },
+                    (),
+                ) {
+                    Err(reason) => println!("Unable to connect to device: {:?}", reason),
+                    Ok(conn) => {
+                        connection = Some(conn);
+                    }
+                }
+            }
+        }
+        /*
+         */
         thread::sleep(Duration::from_secs(1));
     }
-    /*qwwet
-    let midi_out = MidiOutput::new("midir test output")?;
-
-    let mut input = String::new();
-
-    loop {
-        println!("Available input ports:");
-        for i in 0..midi_in.port_count() {
-            println!("{}: {}", i, midi_in.port_name(i)?);
-        }
-        
-        println!("\nAvailable output ports:");
-        for i in 0..midi_out.port_count() {
-            println!("{}: {}", i, midi_out.port_name(i)?);
-        }
-
-        // run in endless loop if "--loop" parameter is specified
-        match ::std::env::args().nth(1) {
-            Some(ref arg) if arg == "--loop" => {}
-            _ => break
-        }
-        print!("\nPress <enter> to retry ...");
-        stdout().flush()?;
-        input.clear();
-        stdin().read_line(&mut input)?;
-        println!("\n");
-    }
-    */
 }
 
 fn list_devices() -> Result<(), Box<Error>> {
