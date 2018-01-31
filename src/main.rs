@@ -74,16 +74,10 @@ fn main() {
 }
 
 fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Enigo) {
-    let mut s = String::new();
-    for &byte in raw_message {
-        write!(&mut s, "{:X} ", byte).expect("Unable to write");
-    }
-
     let keys = vec![
         'q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u', 'i'
     ];
 
-    println!("Got message for data: {}", s);
     if let Ok(msg) = parse_message(raw_message) {
         if msg.channel == 0 {
             if msg.note > 72 {
@@ -125,36 +119,51 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
                     keygen.key_up(enigo::Key::Control);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
                 }
+                return;
+            } else if msg.event == MidiEvent::NoteOff {
+                return;
             }
         }
         // Pad buttons on top
         else if msg.channel == 9 {
-            if msg.event == MidiEvent::NoteOn && msg.note >= 40 && msg.note <= 43 {
-                let keys = vec!['z', 'x', 'c', 'v'];
-                let key_idx = ((msg.note - 40) % 4) as usize;
+            if msg.note >= 40 && msg.note <= 43 {
+                if msg.event == MidiEvent::NoteOn {
+                    let keys = vec!['z', 'x', 'c', 'v'];
+                    let key_idx = ((msg.note - 40) % 4) as usize;
 
-                keygen.key_down(enigo::Key::Escape);
-                thread::sleep(Duration::from_millis(KEY_DELAY_MS));
-                keygen.key_up(enigo::Key::Escape);
+                    println!("Switching instruments...");
+                    keygen.key_down(enigo::Key::Escape);
+                    thread::sleep(Duration::from_millis(KEY_DELAY_MS));
+                    keygen.key_up(enigo::Key::Escape);
 
-                thread::sleep(Duration::from_millis(SYS_DELAY_MS));
+                    thread::sleep(Duration::from_millis(SYS_DELAY_MS));
 
-                keygen.key_down(enigo::Key::Control);
-                keygen.key_down(enigo::Key::Alt);
-                keygen.key_down(enigo::Key::Shift);
-                thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                keygen.key_down(enigo::Key::Layout(keys[key_idx]));
-                thread::sleep(Duration::from_millis(KEY_DELAY_MS));
-                keygen.key_up(enigo::Key::Layout(keys[key_idx]));
-                thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                keygen.key_up(enigo::Key::Control);
-                keygen.key_up(enigo::Key::Alt);
-                keygen.key_up(enigo::Key::Shift);
+                    keygen.key_down(enigo::Key::Control);
+                    keygen.key_down(enigo::Key::Alt);
+                    keygen.key_down(enigo::Key::Shift);
+                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
+                    keygen.key_down(enigo::Key::Layout(keys[key_idx]));
+                    thread::sleep(Duration::from_millis(KEY_DELAY_MS));
+                    keygen.key_up(enigo::Key::Layout(keys[key_idx]));
+                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
+                    keygen.key_up(enigo::Key::Control);
+                    keygen.key_up(enigo::Key::Alt);
+                    keygen.key_up(enigo::Key::Shift);
+                    return;
+                } else if msg.event == MidiEvent::NoteOff {
+                    return;
+                }
             }
         }
 
         println!("Parsed Message: {:?}", msg);
     }
+
+    let mut s = String::new();
+    for &byte in raw_message {
+        write!(&mut s, "{:X} ", byte).expect("Unable to write");
+    }
+    println!("Unhandled message for data: {}", s);
 }
 
 fn run(midi_name: &str) -> Result<(), Box<Error>> {
