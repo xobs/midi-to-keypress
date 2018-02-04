@@ -1,3 +1,4 @@
+extern crate clap;
 extern crate enigo;
 extern crate midir;
 
@@ -5,6 +6,8 @@ use std::error::Error;
 use std::time::Duration;
 use std::thread;
 use std::fmt::Write;
+
+use clap::{App, Arg};
 
 use enigo::KeyboardControllable;
 
@@ -69,8 +72,31 @@ fn parse_message(message: &[u8]) -> Result<MidiMessage, MidiError> {
 }
 
 fn main() {
-    list_devices().unwrap();
-    run(MIDI_DEV_NAME).unwrap();
+    let matches = App::new("Midi Perform")
+        .version("0.2.0")
+        .author("Sean Cross <sean@xobs.io>")
+        .about("Accepts MIDI controller data and simulates keyboard presses")
+        .arg(
+            Arg::with_name("list")
+                .short("l")
+                .help("List available devices"),
+        )
+        .arg(
+            Arg::with_name("device")
+                .short("d")
+                .help("Connect to specified device")
+                .value_name("DEVICE"),
+        )
+        .get_matches();
+
+    if matches.is_present("list") {
+        list_devices().expect("unable to list MIDI devices");
+        return;
+    }
+
+    let device_name = matches.value_of("DEVICE").unwrap_or(MIDI_DEV_NAME);
+    println!("Attempting to connect to device {}", device_name);
+    run(device_name).unwrap();
 }
 
 fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Enigo) {
@@ -171,7 +197,6 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
 
     let mut device_idx: Option<usize> = None;
 
-    println!("Attempting to connect to {}", target_device_name);
     let mut connection: Option<MidiInputConnection<()>> = None;
 
     loop {
@@ -195,10 +220,7 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
         };
 
         if connection.is_none() {
-            println!(
-                "Recreating midi connection.  Looking for {}...",
-                target_device_name
-            );
+            println!("Connecting to MIDI.  Detected devices:");
             for i in 0..midi_in.port_count() {
                 match midi_in.port_name(i) {
                     Err(_) => (),
@@ -209,7 +231,7 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
                         }
                     }
                 }
-                println!("{}: {}", i, midi_in.port_name(i)?);
+                println!("    {}", midi_in.port_name(i)?);
             }
         }
 
@@ -226,13 +248,12 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
                 ) {
                     Err(reason) => println!("Unable to connect to device: {:?}", reason),
                     Ok(conn) => {
+                        println!("Connection established");
                         connection = Some(conn);
                     }
                 }
             }
         }
-        /*
-         */
         thread::sleep(Duration::from_secs(1));
     }
 }
@@ -241,9 +262,9 @@ fn list_devices() -> Result<(), Box<Error>> {
     let mut midi_in = MidiInput::new("keyboard-tweak")?;
     midi_in.ignore(Ignore::None);
 
-    println!("Available input ports:");
+    println!("Available MIDI devices:");
     for i in 0..midi_in.port_count() {
-        println!("{}: {}", i, midi_in.port_name(i)?);
+        println!("    {}", midi_in.port_name(i)?);
     }
 
     Ok(())
