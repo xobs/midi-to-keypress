@@ -79,11 +79,13 @@ fn main() {
         .arg(
             Arg::with_name("list")
                 .short("l")
+                .long("list")
                 .help("List available devices"),
         )
         .arg(
             Arg::with_name("device")
                 .short("d")
+                .long("device")
                 .help("Connect to specified device")
                 .value_name("DEVICE"),
         )
@@ -94,7 +96,7 @@ fn main() {
         return;
     }
 
-    let device_name = matches.value_of("DEVICE").unwrap_or(MIDI_DEV_NAME);
+    let device_name = matches.value_of("device").unwrap_or(MIDI_DEV_NAME);
     println!("Attempting to connect to device {}", device_name);
     run(device_name).unwrap();
 }
@@ -220,7 +222,10 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
         };
 
         if connection.is_none() {
-            println!("Connecting to MIDI.  Detected devices:");
+            println!(
+                "Attempting to connect to MIDI device \"{}\".  Detected devices:",
+                target_device_name
+            );
             for i in 0..midi_in.port_count() {
                 match midi_in.port_name(i) {
                     Err(_) => (),
