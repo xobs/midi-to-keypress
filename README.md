@@ -3,6 +3,8 @@ MIDI-to-Keypress
 
 Takes MIDI events and turns them into keypresses.  Mostly designed for "Perform" in FFXIV.
 
+See [Releases](https://github.com/xobs/midi-to-keypress/releases) for a list of releases.
+
 Building
 --------
 
@@ -16,6 +18,8 @@ cargo run
 
 Usage
 -----
+
+To list available devices, run "miditran --list".  To specify a device to use as an input, run "miditran --device [device-name]".
 
 Currently, there is no external configuration.  The program will search for a device named MIDI\_DEV\_NAME, and will monitor key events from that device.
 
