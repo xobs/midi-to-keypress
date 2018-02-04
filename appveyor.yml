@@ -1,4 +1,4 @@
-version: "0.1.0.{build}"
+#version: "0.1.0.{build}"
 environment:
   matrix:
   - TARGET: nightly-x86_64-pc-windows-msvc
@@ -20,6 +20,24 @@ skip_commits:
   files:
     - README.md
     - .travis.yml
-artifacts:
-- path: target\debug\miditran.exe
-  name: miditran
+deploy:
+  artifact: target\debug\miditran.exe
+  auth_token:
+    secure: kKeVzQQ8Mhx3gMQENTiGqGtDECO2xmPBGrnp7cn92MstDcL14Pkzrbvl7Yr/fI3b
+  description: 'Automated release'
+  on:
+    # TODO Here you can pick which targets will generate binary releases
+    # In this example, there are some targets that are tested using the stable
+    # and nightly channels. This condition makes sure there is only one release
+    # for such targets and that's generated using the stable channel
+    RUST_VERSION: stable
+    appveyor_repo_tag: true
+  provider: GitHub
+branches:
+  only:
+    # Release tags
+    - /^v\d+\.\d+\.\d+.*$/
+    - master
+notifications:
+  - provider: Email
+    on_build_success: false
