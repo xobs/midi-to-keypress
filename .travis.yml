@@ -1,3 +1,6 @@
+# This doesn't work
+# Travis doesn't seem to build Windows projects correctly,
+# so we use AppVeyor instead.
 language: rust
 dist: trusty
 language: rust
