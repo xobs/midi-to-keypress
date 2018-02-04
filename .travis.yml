@@ -1,4 +1,14 @@
 language: rust
+dist: trusty
+language: rust
+services: docker
+sudo: required
+
+env:
+  global:
+    # TODO Update this to match the name of your project.
+    - CRATE_NAME=midi-perform
+
 matrix:
   include:
     # Windows
@@ -11,6 +21,8 @@ deploy:
   on:
     tags: true
   skip_cleanup: true
+script:
+- bash ci/script.sh
 cache: cargo
 before_cache:
   # Travis can't cache files that are not readable by "others"
