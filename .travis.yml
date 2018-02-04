@@ -1,0 +1,22 @@
+language: rust
+matrix:
+  include:
+    # Windows
+    - env: TARGET=x86_64-pc-windows-gnu
+deploy:
+  provider: releases
+  api_key:
+    secure: fIGwXXhalgpiM8UtzWwNwcSW6CRj8yIDhAJ6O7WIM4HpUcGdUWgC8AtDgiELfKOJ0Z9dcBocw7SV25WTp7P01ZABnr7gGokBTtd1aKtR+kZf1VO9jYJehfBl5YP6Esw+k6Te3QbuWbCnPHUKhLxbBlkzyDiHPM8sylyua5PVobLcPE4NbAHbSvdVwmf8ltQMMvOdF7fEUm+05s136YymH35DC9dbKQli4Ezq2SSL2w5TUgqQzd4Y+Rytepv1nf7veV4fUoG0DYuv+63NuHVbsVfEsGPj7FNQhhPXIf6dK4Yx079xiThmuTOzoZJVNIVGFqMpKzEgkzzC9OHP6wvhdpmRs5kFKF/dI/qbhKLCYIc5QR4AFeqs0ZcRrPJicqzaYkWf3nwHIeDK6aaBs5ve92k8py/qDWd6PqqJ8rDkh3B9XcCrsB7yAs/bQ+Uy250jbZBYA2uW17ydJRDkx7yyWJQ4FkCtNljI33V7JrRA5aMGTfZW1UBA9QsUUvJQKORUFYMUKp5zJyGxgFomeEIrwUOTLaCBq6f4qDVU4uu2RkkEpLbEhd2GjOplWqeaqR1YzHRqm43yq1i7R0TO/YNsTAKQnxgQlPC9apgVQaJjNjC4gZRgtyv4EBswKN3vPMTkKL2rAVk3JWhOZyCt9iwKK/GUd9jOxt/tRWicutglvWI=
+  file: target/debug/miditran.exe
+  on:
+    tags: true
+  skip_cleanup: true
+cache: cargo
+before_cache:
+  # Travis can't cache files that are not readable by "others"
+  - chmod -R a+r $HOME/.cargo
+branches:
+  only:
+    # release tags
+    - /^v\d+\.\d+\.\d+.*$/
+    - master
