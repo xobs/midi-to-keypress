@@ -5,6 +5,11 @@ Takes MIDI events and turns them into keypresses.  Mostly designed for "Perform"
 
 See [Releases](https://github.com/xobs/midi-to-keypress/releases) for a list of releases.
 
+Installing
+----------
+
+You only need to download the [latest release](https://github.com/xobs/midi-to-keypress/releases/latest).  Download it, unzip it, and run it from cmd.exe.
+
 Building
 --------
 
