@@ -21,7 +21,7 @@ main() {
     cross rustc --bin miditran --target $TARGET --release -- -C lto
 
     # TODO Update this to package the right artifacts
-    cp target/$TARGET/release/miditran $stage/
+    cp target/$TARGET/release/miditran.exe $stage/
 
     cd $stage
     tar czf $src/$CRATE_NAME-$TRAVIS_TAG-$TARGET.tar.gz *
