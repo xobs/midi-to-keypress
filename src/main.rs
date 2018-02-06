@@ -60,11 +60,17 @@ fn parse_message(message: &[u8]) -> Result<MidiMessage, MidiError> {
         0x90 => if message.len() < 3 {
             Err(MidiError::TooShort)
         } else {
+            let velocity = message[2] & 0x7f;
+            let event = if velocity != 0 {
+                MidiEvent::NoteOn
+            } else {
+                MidiEvent::NoteOff
+            };
             Ok(MidiMessage {
-                event: MidiEvent::NoteOn,
+                event: event,
                 channel: message[0] & 0x0f,
                 note: message[1] & 0x7f,
-                velocity: message[2] & 0x7f,
+                velocity: velocity,
             })
         },
         _ => Err(MidiError::Unimplemented(message[0])),
