@@ -1,6 +1,6 @@
 [package]
 name = "miditran"
-version = "0.2.2"
+version = "0.2.7"
 authors = ["Sean Cross <sean@xobs.io>"]
 
 [dependencies]
