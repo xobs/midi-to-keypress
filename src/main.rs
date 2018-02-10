@@ -22,9 +22,6 @@ const KEY_DELAY_MS: u64 = 40;
 /// The amount of time required for system events, such as Esc
 const SYS_DELAY_MS: u64 = 400;
 
-/// The name of the midi device we'll look to
-const MIDI_DEV_NAME: &str = "Launchkey Mini";
-
 #[derive(Debug, PartialEq)]
 enum MidiEvent {
     NoteOn,
@@ -102,8 +99,10 @@ fn main() {
         return;
     }
 
-    let device_name = matches.value_of("device").unwrap_or(MIDI_DEV_NAME);
-    println!("Attempting to connect to device {}", device_name);
+    let device_name = match matches.value_of("device") {
+        Some(s) => Some(s.to_owned()),
+        None => None,
+    };
     run(device_name).unwrap();
 }
 
@@ -200,8 +199,8 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
     println!("Unhandled message for data: {}", s);
 }
 
-fn run(midi_name: &str) -> Result<(), Box<Error>> {
-    let target_device_name = midi_name.to_owned();
+fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
+    let mut target_device_name = midi_name.to_owned();
 
     let mut device_idx: Option<usize> = None;
 
@@ -211,15 +210,20 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
         let mut midi_in = MidiInput::new("keyboard-tweak")?;
         midi_in.ignore(Ignore::None);
 
+        // If the index of the device has changed, reset the connection
         if let Some(idx) = device_idx {
             match midi_in.port_name(idx) {
                 Err(_) => {
                     device_idx = None;
                     connection = None;
                 }
-                Ok(val) => if &val != &target_device_name {
-                    device_idx = None;
-                    connection = None;
+                Ok(val) => {
+                    if let Some(ref name) = target_device_name {
+                        if &val != name {
+                            device_idx = None;
+                            connection = None;
+                        }
+                    }
                 },
             }
         } else {
@@ -227,18 +231,28 @@ fn run(midi_name: &str) -> Result<(), Box<Error>> {
             connection = None;
         };
 
+        // If there is no connection, try to create a new one.
         if connection.is_none() {
-            println!(
-                "Attempting to connect to MIDI device \"{}\".  Detected devices:",
-                target_device_name
-            );
+            match target_device_name {
+                None => println!("Connecting to first available device"),
+                Some(ref s) => println!("Looking for device {}", s),
+            }
+
             for i in 0..midi_in.port_count() {
                 match midi_in.port_name(i) {
                     Err(_) => (),
                     Ok(name) => {
-                        if &name == &target_device_name {
-                            println!("Using device:{}", i);
-                            device_idx = Some(i);
+                        match target_device_name {
+                            Some(ref s) => 
+                                if &name == s {
+                                    println!("Using device: {}", i);
+                                    device_idx = Some(i);
+                                },
+                            None => {
+                                println!("Using device: {}", i);
+                                device_idx = Some(i);
+                                target_device_name = Some(name);
+                            },
                         }
                     }
                 }
