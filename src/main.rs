@@ -76,7 +76,7 @@ fn parse_message(message: &[u8]) -> Result<MidiMessage, MidiError> {
 
 fn main() {
     let matches = App::new("Midi Perform")
-        .version("0.2.8")
+        .version("0.2.9")
         .author("Sean Cross <sean@xobs.io>")
         .about("Accepts MIDI controller data and simulates keyboard presses")
         .arg(
