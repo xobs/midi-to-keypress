@@ -87,7 +87,7 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
                     println!("Sending Shift");
                     keygen.key_down(enigo::Key::Shift);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if *msg.note() <= MidiNote::C4 {
+                } else if *msg.note() < MidiNote::C4 {
                     println!("Sending Control");
                     keygen.key_down(enigo::Key::Control);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
