@@ -83,11 +83,11 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
 
             if *msg.event() == MidiEvent::NoteOn {
                 // Hold Shift, since we're going up an octave
-                if *msg.note() >= MidiNote::C5 && *msg.note() <= MidiNote::C6 {
+                if *msg.note() >= MidiNote::C5 {
                     println!("Sending Shift");
                     keygen.key_down(enigo::Key::Shift);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if *msg.note() >= MidiNote::C3 && *msg.note() <= MidiNote::C4 {
+                } else if *msg.note() <= MidiNote::C4 {
                     println!("Sending Control");
                     keygen.key_down(enigo::Key::Control);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
@@ -98,10 +98,10 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
                 thread::sleep(Duration::from_millis(KEY_DELAY_MS));
                 keygen.key_up(enigo::Key::Layout(keys[note_idx]));
 
-                if *msg.note() >= MidiNote::C5 && *msg.note() <= MidiNote::C6 {
+                if *msg.note() >= MidiNote::C5 {
                     keygen.key_up(enigo::Key::Shift);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if *msg.note() >= MidiNote::C3 && *msg.note() <= MidiNote::C4 {
+                } else if *msg.note() >= MidiNote::C3 {
                     keygen.key_up(enigo::Key::Control);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
                 }
