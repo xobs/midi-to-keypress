@@ -1,3 +1,5 @@
+#![windows_subsystem = "console"]
+
 extern crate clap;
 extern crate enigo;
 extern crate midir;
@@ -13,6 +15,9 @@ use enigo::KeyboardControllable;
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
+mod midi;
+use midi::{MidiMessage, MidiEvent, MidiNote};
+
 /// The amount of time to wait for a keyboard modifier to stick
 const MOD_DELAY_MS: u64 = 5;
 
@@ -21,58 +26,6 @@ const KEY_DELAY_MS: u64 = 40;
 
 /// The amount of time required for system events, such as Esc
 const SYS_DELAY_MS: u64 = 400;
-
-#[derive(Debug, PartialEq)]
-enum MidiEvent {
-    NoteOn,
-    NoteOff,
-}
-
-#[derive(Debug)]
-struct MidiMessage {
-    event: MidiEvent,
-    channel: u8,
-    note: u8,
-    velocity: u8,
-}
-
-#[derive(Debug)]
-enum MidiError {
-    TooShort,
-    Unimplemented(u8),
-}
-
-fn parse_message(message: &[u8]) -> Result<MidiMessage, MidiError> {
-    match message[0] & 0xf0 {
-        0x80 => if message.len() < 3 {
-            Err(MidiError::TooShort)
-        } else {
-            Ok(MidiMessage {
-                event: MidiEvent::NoteOff,
-                channel: message[0] & 0x0f,
-                note: message[1] & 0x7f,
-                velocity: message[2] & 0x7f,
-            })
-        },
-        0x90 => if message.len() < 3 {
-            Err(MidiError::TooShort)
-        } else {
-            let velocity = message[2] & 0x7f;
-            let event = if velocity != 0 {
-                MidiEvent::NoteOn
-            } else {
-                MidiEvent::NoteOff
-            };
-            Ok(MidiMessage {
-                event: event,
-                channel: message[0] & 0x0f,
-                note: message[1] & 0x7f,
-                velocity: velocity,
-            })
-        },
-        _ => Err(MidiError::Unimplemented(message[0])),
-    }
-}
 
 fn main() {
     let matches = App::new("Midi Perform")
@@ -111,30 +64,30 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
         'q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u', 'i'
     ];
 
-    if let Ok(msg) = parse_message(raw_message) {
-        if msg.channel == 0 {
-            if msg.note > 72 {
-                println!("Note too high (max: C-6)");
+    if let Ok(msg) = MidiMessage::new(raw_message) {
+        if msg.channel() == 0 {
+            if *msg.note() > MidiNote::C6 {
+                println!("Note too high (max: C6)");
                 return;
-            } else if msg.note < 36 {
-                println!("Note too low (min: C-3)");
+            } else if *msg.note() < MidiNote::C3 {
+                println!("Note too low (min: C3)");
                 return;
             }
 
             // Special case to deal with the high-C
-            let note_idx = if msg.note == 72 {
+            let note_idx = if *msg.note() == MidiNote::C6 {
                 12
             } else {
-                (msg.note % 12) as usize
+                (msg.note().index() % 12) as usize
             };
 
-            if msg.event == MidiEvent::NoteOn {
+            if *msg.event() == MidiEvent::NoteOn {
                 // Hold Shift, since we're going up an octave
-                if msg.note >= 60 && msg.note <= 72 {
+                if *msg.note() >= MidiNote::C5 && *msg.note() <= MidiNote::C6 {
                     println!("Sending Shift");
                     keygen.key_down(enigo::Key::Shift);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if msg.note >= 36 && msg.note <= 47 {
+                } else if *msg.note() >= MidiNote::C3 && *msg.note() <= MidiNote::C4 {
                     println!("Sending Control");
                     keygen.key_down(enigo::Key::Control);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
@@ -145,24 +98,24 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
                 thread::sleep(Duration::from_millis(KEY_DELAY_MS));
                 keygen.key_up(enigo::Key::Layout(keys[note_idx]));
 
-                if msg.note >= 60 && msg.note <= 72 {
+                if *msg.note() >= MidiNote::C5 && *msg.note() <= MidiNote::C6 {
                     keygen.key_up(enigo::Key::Shift);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if msg.note >= 36 && msg.note <= 47 {
+                } else if *msg.note() >= MidiNote::C3 && *msg.note() <= MidiNote::C4 {
                     keygen.key_up(enigo::Key::Control);
                     thread::sleep(Duration::from_millis(MOD_DELAY_MS));
                 }
                 return;
-            } else if msg.event == MidiEvent::NoteOff {
+            } else if *msg.event() == MidiEvent::NoteOff {
                 return;
             }
         }
         // Pad buttons on top
-        else if msg.channel == 9 {
-            if msg.note >= 40 && msg.note <= 43 {
-                if msg.event == MidiEvent::NoteOn {
+        else if msg.channel() == 9 {
+            if msg.note().index() >= 40 && msg.note().index() <= 43 {
+                if *msg.event() == MidiEvent::NoteOn {
                     let keys = vec!['z', 'x', 'c', 'v'];
-                    let key_idx = ((msg.note - 40) % 4) as usize;
+                    let key_idx = ((msg.note().index() - 40) % 4) as usize;
 
                     println!("Switching instruments...");
                     keygen.key_down(enigo::Key::Escape);
@@ -183,7 +136,7 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
                     keygen.key_up(enigo::Key::Alt);
                     keygen.key_up(enigo::Key::Shift);
                     return;
-                } else if msg.event == MidiEvent::NoteOff {
+                } else if *msg.event() == MidiEvent::NoteOff {
                     return;
                 }
             }
