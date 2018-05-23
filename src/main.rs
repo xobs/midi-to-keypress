@@ -8,6 +8,7 @@ use std::error::Error;
 use std::time::Duration;
 use std::thread;
 use std::fmt::Write;
+use std::sync::{Arc, Mutex};
 
 use clap::{App, Arg};
 
@@ -26,6 +27,20 @@ const KEY_DELAY_MS: u64 = 40;
 
 /// The amount of time required for system events, such as Esc
 const SYS_DELAY_MS: u64 = 400;
+
+/// The object that gets passed to the MIDI callback, containing all our state
+#[derive(Clone)]
+struct AppState {
+    keygen: Arc<Mutex<enigo::Enigo>>,
+}
+
+impl AppState {
+    pub fn new() -> AppState {
+        AppState {
+            keygen: Arc::new(Mutex::new(enigo::Enigo::new())),
+        }
+    }
+}
 
 fn main() {
     let matches = App::new("Midi Perform")
@@ -59,10 +74,13 @@ fn main() {
     run(device_name).unwrap();
 }
 
-fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Enigo) {
+/// This function is called for every message that gets passed in.
+fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
     let keys = vec![
         'q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u', 'i'
     ];
+
+    let mut keygen = app_state.keygen.lock().unwrap();
 
     if let Ok(msg) = MidiMessage::new(raw_message) {
         if msg.channel() == 0 {
@@ -154,10 +172,9 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], keygen: &mut enigo::Eni
 
 fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
     let mut target_device_name = midi_name.to_owned();
-
     let mut device_idx: Option<usize> = None;
-
     let mut connection: Option<MidiInputConnection<()>> = None;
+    let app_state = AppState::new();
 
     loop {
         let mut midi_in = MidiInput::new("keyboard-tweak")?;
@@ -215,12 +232,12 @@ fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
 
         if connection.is_none() {
             if let Some(idx) = device_idx {
-                let mut keygen = enigo::Enigo::new();
+                let app_state_thr = app_state.clone();
                 match midi_in.connect(
                     idx,
                     "key monitor",
                     move |ts, raw_msg, _ignored| {
-                        midi_callback(ts, raw_msg, &mut keygen);
+                        midi_callback(ts, raw_msg, &app_state_thr);
                     },
                     (),
                 ) {
