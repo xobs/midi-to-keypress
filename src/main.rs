@@ -8,7 +8,6 @@ use std::error::Error;
 use std::time::Duration;
 use std::thread;
 use std::fmt::Write;
-use std::sync::{Arc, Mutex};
 
 use clap::{App, Arg};
 
@@ -19,6 +18,9 @@ use midir::{Ignore, MidiInput, MidiInputConnection};
 mod midi;
 use midi::{MidiMessage, MidiEvent, MidiNote};
 
+mod appstate;
+use appstate::AppState;
+
 /// The amount of time to wait for a keyboard modifier to stick
 const MOD_DELAY_MS: u64 = 5;
 
@@ -27,20 +29,6 @@ const KEY_DELAY_MS: u64 = 40;
 
 /// The amount of time required for system events, such as Esc
 const SYS_DELAY_MS: u64 = 400;
-
-/// The object that gets passed to the MIDI callback, containing all our state
-#[derive(Clone)]
-struct AppState {
-    keygen: Arc<Mutex<enigo::Enigo>>,
-}
-
-impl AppState {
-    pub fn new() -> AppState {
-        AppState {
-            keygen: Arc::new(Mutex::new(enigo::Enigo::new())),
-        }
-    }
-}
 
 fn main() {
     let matches = App::new("Midi Perform")
@@ -80,7 +68,7 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
         'q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u', 'i'
     ];
 
-    let mut keygen = app_state.keygen.lock().unwrap();
+    let mut keygen = app_state.keygen().lock().unwrap();
 
     if let Ok(msg) = MidiMessage::new(raw_message) {
         if msg.channel() == 0 {
