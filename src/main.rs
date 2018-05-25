@@ -21,8 +21,11 @@ use midi::{MidiMessage, MidiEvent, MidiNote};
 mod appstate;
 use appstate::AppState;
 
+mod notemappings;
+use notemappings::KbdKey;
+
 /// The amount of time to wait for a keyboard modifier to stick
-const MOD_DELAY_MS: u64 = 5;
+//const MOD_DELAY_MS: u64 = 5;
 
 /// The amount of time to wait for a keydown event to stick
 const KEY_DELAY_MS: u64 = 40;
@@ -69,8 +72,23 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
     ];
 
     let mut keygen = app_state.keygen().lock().unwrap();
-
+ 
     if let Ok(msg) = MidiMessage::new(raw_message) {
+        if let Some(note_mapping) = app_state.mappings().lock().unwrap().find(msg.note(), msg.channel()) {
+            let sequence = match msg.event() {
+                &MidiEvent::NoteOn => note_mapping.on,
+                &MidiEvent::NoteOff => note_mapping.off,
+            };
+
+            for event in &sequence {
+                match event {
+                    notemappings::Event::Delay(msecs) => thread::sleep(Duration::from_millis(*msecs)),
+                    notemappings::Event::KeyDown(k) => keygen.key_down(KbdKey::to_enigo_key(k)),
+                    notemappings::Event::KeyUp(k) => keygen.key_up(KbdKey::to_enigo_key(k)),
+                }
+            }
+        }
+        /*
         if msg.channel() == 0 {
             if *msg.note() > MidiNote::C6 {
                 println!("Note too high (max: C6)");
@@ -147,6 +165,7 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
                 }
             }
         }
+        */
 
         println!("Parsed Message: {:?}", msg);
     }
@@ -164,8 +183,10 @@ fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
     let mut connection: Option<MidiInputConnection<()>> = None;
     let app_state = AppState::new();
 
+    app_state.mappings().lock().unwrap().import("note_mappings.txt").ok();
+
     loop {
-        let mut midi_in = MidiInput::new("keyboard-tweak")?;
+        let mut midi_in = MidiInput::new("perform")?;
         midi_in.ignore(Ignore::None);
 
         // If the index of the device has changed, reset the connection
@@ -242,7 +263,7 @@ fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
 }
 
 fn list_devices() -> Result<(), Box<Error>> {
-    let mut midi_in = MidiInput::new("keyboard-tweak")?;
+    let mut midi_in = MidiInput::new("perform")?;
     midi_in.ignore(Ignore::None);
 
     println!("Available MIDI devices:");
