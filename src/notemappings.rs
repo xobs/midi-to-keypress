@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, Result};
 use std::fs::File;
 
 /// Proxy for Enigo::Key, since that variant isn't cloneable
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum KbdKey {
     /// return key
     Return,
@@ -118,14 +118,24 @@ impl KbdKey {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Event {
+    /// Insert a Delay for a specified number of ms
     Delay(u64),
+    
+    /// Press a key
     KeyDown(KbdKey),
+
+    /// Release a key
     KeyUp(KbdKey),
+
+    /// Keep a key held down during this script.
+    /// Note that the key may be continued to be held down until a script
+    /// with no NoteMod is encountered.
+    NoteMod(Option<KbdKey>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NoteMapping {
     /// The source note that triggered this event.
     note: MidiNote,
@@ -133,8 +143,59 @@ pub struct NoteMapping {
     /// The source channel.  0 is a good default here.
     channel: u8,
 
+    /// The name of the instrument that we're looking for.
+    instrument_name: Option<String>,
+
+    /// A sequence to call when the note is pressed.
     pub on: Vec<Event>,
+
+    /// A sequence to call when the note is released.
     pub off: Vec<Event>,
+}
+
+impl NoteMapping {
+    pub fn new(note: MidiNote,
+               channel: u8,
+               instrument_name: Option<String>) -> NoteMapping {
+        NoteMapping {
+            note: note,
+            channel: channel,
+            instrument_name: instrument_name,
+            on: vec![],
+            off: vec![],
+        }
+    }
+
+    pub fn down_event(key: char, modifier: Option<KbdKey>, _delay: Option<u64>) -> Vec<Event> {
+        let mut v = vec![];
+
+        if let Some(ref m) = modifier {
+            v.push(Event::NoteMod(Some(m.clone())));
+        }
+        else {
+            v.push(Event::NoteMod(None));
+        }
+
+        v.push(Event::KeyDown(KbdKey::Layout(key)));
+
+        v
+    }
+
+    pub fn up_event(key: char, _modifier: Option<KbdKey>, _delay: Option<u64>) -> Vec<Event> {
+        let mut v = vec![];
+/*
+        if let Some(ref m) = modifier {
+            v.push(Event::KeyUp(m.clone()));
+        }
+
+        if let Some(d) = delay {
+            v.push(Event::Delay(d));
+        }
+*/
+        v.push(Event::KeyUp(KbdKey::Layout(key)));
+
+        v
+    }
 }
 
 pub struct NoteMappings {
@@ -147,10 +208,12 @@ impl NoteMappings {
     }
 
     /// Find a mapping for a given note, if one exists
-    pub fn find(&self, note: &MidiNote, channel: u8) -> Option<NoteMapping> {
+    pub fn find(&self, note: &MidiNote, channel: u8, instrument_name: Option<String>) -> Option<NoteMapping> {
         for mapping in &self.mappings {
             if mapping.note == *note && mapping.channel == channel {
-                return Some(mapping.clone());
+                if mapping.instrument_name == instrument_name {
+                    return Some(mapping.clone());
+                }
             }
         }
         None
@@ -174,5 +237,10 @@ impl NoteMappings {
             println!("Got line: {}  Note: {:?}", l, note);
         }
         Ok(())
+    }
+
+    pub fn add(&mut self, mapping: NoteMapping) {
+        /// Note: We need to remove old mappings here, too!
+        self.mappings.push(mapping);
     }
 }

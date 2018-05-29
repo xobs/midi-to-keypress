@@ -11,8 +11,6 @@ use std::fmt::Write;
 
 use clap::{App, Arg};
 
-use enigo::KeyboardControllable;
-
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
 mod midi;
@@ -22,16 +20,19 @@ mod appstate;
 use appstate::AppState;
 
 mod notemappings;
-use notemappings::KbdKey;
+use notemappings::{Event, KbdKey, NoteMapping, NoteMappings};
 
 /// The amount of time to wait for a keyboard modifier to stick
-//const MOD_DELAY_MS: u64 = 5;
+const MOD_DELAY_MS: u64 = 150;
 
 /// The amount of time to wait for a keydown event to stick
 const KEY_DELAY_MS: u64 = 40;
 
 /// The amount of time required for system events, such as Esc
 const SYS_DELAY_MS: u64 = 400;
+
+/// A small delay required when switching between octaves.
+const OCTAVE_DELAY_MS: u64 = 10;
 
 fn main() {
     let matches = App::new("Midi Perform")
@@ -67,27 +68,128 @@ fn main() {
 
 /// This function is called for every message that gets passed in.
 fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
+    let mut keygen = app_state.keygen().lock().unwrap();
+ 
+    if let Ok(msg) = MidiMessage::new(raw_message) {
+        if let Some(note_mapping) = app_state.mappings().lock().unwrap().find(msg.note(), msg.channel(), None) {
+            let sequence = match msg.event() {
+                &MidiEvent::NoteOn => &note_mapping.on,
+                &MidiEvent::NoteOff => &note_mapping.off,
+            };
+
+            //println!("Found note mapping: {:?} for event {:?}, running sequence {:?}", note_mapping, msg.event(), sequence);
+            for event in sequence {
+                match event {
+                    &notemappings::Event::Delay(msecs) => thread::sleep(Duration::from_millis(msecs)),
+                    &notemappings::Event::KeyDown(ref k) => {keygen.key_down(&k);},
+                    &notemappings::Event::KeyUp(ref k) => {keygen.key_up(&k);},
+
+                    // For NoteMod, which goes at the top of a note, see if we need to change
+                    // the current set of modifiers.  If so, pause a short while.
+                    // This enables fast switching between notes in the same octave, where no
+                    // keychange is required.
+                    &notemappings::Event::NoteMod(ref kopt) => {
+                        let mut changes = 0;
+                        let key_mods = vec![KbdKey::Shift, KbdKey::Control];
+                        if let &Some(ref k) = kopt {
+                            for key_mod in key_mods {
+                                if &key_mod == k {
+                                    if keygen.key_down(&key_mod) {
+                                        changes = changes + 1;
+                                    }
+                                }
+                                else {
+                                    if keygen.key_up(&key_mod) {
+                                        changes = changes + 1;
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            for key_mod in key_mods {
+                                if keygen.key_up(&key_mod) {
+                                    changes = changes + 1;
+                                }
+                            }
+                        }
+                        if changes > 0 {
+                            thread::sleep(Duration::from_millis(OCTAVE_DELAY_MS));
+                        }
+                    },
+                }
+            }
+        }
+        else {
+            println!("No note mapping for {:?} @ {:?}", msg.note(), msg.channel()); 
+        }
+    }
+
+    /*
+    let mut s = String::new();
+    for &byte in raw_message {
+        write!(&mut s, "{:X} ", byte).expect("Unable to write");
+    }
+    println!("Unhandled message for data: {}", s);
+    */
+}
+
+fn generate_old_mappings(mappings: &mut NoteMappings) {
     let keys = vec![
         'q', '2', 'w', '3', 'e', 'r', '5', 't', '6', 'y', '7', 'u', 'i'
     ];
 
-    let mut keygen = app_state.keygen().lock().unwrap();
- 
-    if let Ok(msg) = MidiMessage::new(raw_message) {
-        if let Some(note_mapping) = app_state.mappings().lock().unwrap().find(msg.note(), msg.channel()) {
-            let sequence = match msg.event() {
-                &MidiEvent::NoteOn => note_mapping.on,
-                &MidiEvent::NoteOff => note_mapping.off,
-            };
+    for (key_idx, key) in keys.iter().enumerate() {
+        let base = MidiNote::C3.index();
+        let mut note_mapping_lo = NoteMapping::new(MidiNote::new(key_idx as u8 + base).expect("Invalid note index"), 0, None);
+        let mut note_mapping_mid = NoteMapping::new(MidiNote::new(key_idx as u8 + base + 12).expect("Invalid note index"), 0, None);
+        let mut note_mapping_hi = NoteMapping::new(MidiNote::new(key_idx as u8 + base + 24).expect("Invalid note index"), 0, None);
 
-            for event in &sequence {
-                match event {
-                    notemappings::Event::Delay(msecs) => thread::sleep(Duration::from_millis(*msecs)),
-                    notemappings::Event::KeyDown(k) => keygen.key_down(KbdKey::to_enigo_key(k)),
-                    notemappings::Event::KeyUp(k) => keygen.key_up(KbdKey::to_enigo_key(k)),
-                }
-            }
-        }
+        note_mapping_lo.on = NoteMapping::down_event(*key, Some(KbdKey::Control), Some(MOD_DELAY_MS));
+        note_mapping_lo.off = NoteMapping::up_event(*key, Some(KbdKey::Control), Some(MOD_DELAY_MS));
+
+        note_mapping_mid.on = NoteMapping::down_event(*key, None, None);
+        note_mapping_mid.off = NoteMapping::up_event(*key, None, None);
+
+        note_mapping_hi.on = NoteMapping::down_event(*key, Some(KbdKey::Shift), Some(MOD_DELAY_MS));
+        note_mapping_hi.off = NoteMapping::up_event(*key, Some(KbdKey::Shift), Some(MOD_DELAY_MS));
+
+        mappings.add(note_mapping_lo);
+        mappings.add(note_mapping_mid);
+        mappings.add(note_mapping_hi);
+    }
+
+    // Add pad buttons on the top of my keyboard, which are on channel 9.
+    let pads = vec!['z', 'x', 'c', 'v', 'b', 'n', 'm', ','];
+    for (pad_idx, pad) in pads.iter().enumerate() {
+        let seq = vec![
+            Event::KeyDown(KbdKey::Escape),
+            Event::Delay(KEY_DELAY_MS),
+            Event::KeyUp(KbdKey::Escape),
+
+            Event::Delay(SYS_DELAY_MS),
+
+            Event::KeyDown(KbdKey::Control),
+            Event::KeyDown(KbdKey::Alt),
+            Event::KeyDown(KbdKey::Shift),
+
+            // Let the modifier keys get registered
+            Event::Delay(MOD_DELAY_MS),
+
+            Event::KeyDown(KbdKey::Layout(*pad)),
+            Event::Delay(KEY_DELAY_MS),
+            Event::KeyUp(KbdKey::Layout(*pad)),
+
+            Event::Delay(MOD_DELAY_MS),
+            Event::KeyUp(KbdKey::Shift),
+            Event::KeyUp(KbdKey::Alt),
+            Event::KeyUp(KbdKey::Control),
+        ];
+
+        let mut pad_mapping = NoteMapping::new(MidiNote::new(pad_idx as u8 + 40).expect("Invalid note index"), 9, None);
+        pad_mapping.on = seq;
+        mappings.add(pad_mapping);
+    }
+
         /*
         if msg.channel() == 0 {
             if *msg.note() > MidiNote::C6 {
@@ -166,15 +268,6 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
             }
         }
         */
-
-        println!("Parsed Message: {:?}", msg);
-    }
-
-    let mut s = String::new();
-    for &byte in raw_message {
-        write!(&mut s, "{:X} ", byte).expect("Unable to write");
-    }
-    println!("Unhandled message for data: {}", s);
 }
 
 fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
@@ -183,7 +276,8 @@ fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
     let mut connection: Option<MidiInputConnection<()>> = None;
     let app_state = AppState::new();
 
-    app_state.mappings().lock().unwrap().import("note_mappings.txt").ok();
+    //app_state.mappings().lock().unwrap().import("note_mappings.txt").ok();
+    generate_old_mappings(&mut app_state.mappings().lock().unwrap());
 
     loop {
         let mut midi_in = MidiInput::new("perform")?;
