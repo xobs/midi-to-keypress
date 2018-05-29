@@ -1,11 +1,11 @@
 use enigo::Key;
 use midi::MidiNote;
-use std::path::Path;
 use std::io::{BufRead, BufReader, Result};
 use std::fs::File;
 
 /// Proxy for Enigo::Key, since that variant isn't cloneable
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(dead_code)]
 pub enum KbdKey {
     /// return key
     Return,
@@ -240,7 +240,7 @@ impl NoteMappings {
     }
 
     pub fn add(&mut self, mapping: NoteMapping) {
-        /// Note: We need to remove old mappings here, too!
+        ///Note: We need to remove old mappings here, too!
         self.mappings.push(mapping);
     }
 }

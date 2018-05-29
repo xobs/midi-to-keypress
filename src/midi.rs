@@ -5,6 +5,7 @@ pub enum MidiEvent {
 }
 
 #[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
+#[allow(dead_code)]
 pub enum MidiNote {
     Cn = 0,
     Csn = 1,

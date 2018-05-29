@@ -10,8 +10,6 @@ pub struct KeyGen {
     enigo: Enigo,
     key_state: HashMap<KbdKey, bool>,
 }
-use std::time::Duration;
-use std::thread;
 
 impl KeyGen {
     pub fn new() -> KeyGen {

@@ -8,6 +8,7 @@ use std::error::Error;
 use std::time::Duration;
 use std::thread;
 use std::fmt::Write;
+use std::collections::HashMap;
 
 use clap::{App, Arg};
 
@@ -162,12 +163,17 @@ fn generate_old_mappings(mappings: &mut NoteMappings) {
     let pads = vec!['z', 'x', 'c', 'v', 'b', 'n', 'm', ','];
     for (pad_idx, pad) in pads.iter().enumerate() {
         let seq = vec![
+            Event::NoteMod(None), // Ensure no modifier keys are pressed at the start
+
+            // Press Escape twice to clear any dialogs, and to potentially
+            // exit the current Perform session.
             Event::KeyDown(KbdKey::Escape),
             Event::Delay(KEY_DELAY_MS),
             Event::KeyUp(KbdKey::Escape),
 
             Event::Delay(SYS_DELAY_MS),
 
+            // Hold Control, Alt, and Shift.
             Event::KeyDown(KbdKey::Control),
             Event::KeyDown(KbdKey::Alt),
             Event::KeyDown(KbdKey::Shift),
@@ -180,6 +186,7 @@ fn generate_old_mappings(mappings: &mut NoteMappings) {
             Event::KeyUp(KbdKey::Layout(*pad)),
 
             Event::Delay(MOD_DELAY_MS),
+
             Event::KeyUp(KbdKey::Shift),
             Event::KeyUp(KbdKey::Alt),
             Event::KeyUp(KbdKey::Control),
@@ -189,168 +196,70 @@ fn generate_old_mappings(mappings: &mut NoteMappings) {
         pad_mapping.on = seq;
         mappings.add(pad_mapping);
     }
-
-        /*
-        if msg.channel() == 0 {
-            if *msg.note() > MidiNote::C6 {
-                println!("Note too high (max: C6)");
-                return;
-            } else if *msg.note() < MidiNote::C3 {
-                println!("Note too low (min: C3)");
-                return;
-            }
-
-            // Special case to deal with the high-C
-            let note_idx = if *msg.note() == MidiNote::C6 {
-                12
-            } else {
-                (msg.note().index() % 12) as usize
-            };
-
-            if *msg.event() == MidiEvent::NoteOn {
-                // Hold Shift, since we're going up an octave
-                if *msg.note() >= MidiNote::C5 {
-                    println!("Sending Shift");
-                    keygen.key_down(enigo::Key::Shift);
-                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if *msg.note() < MidiNote::C4 {
-                    println!("Sending Control");
-                    keygen.key_down(enigo::Key::Control);
-                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                }
-
-                println!("Sending key: {}", keys[note_idx]);
-                keygen.key_down(enigo::Key::Layout(keys[note_idx]));
-                thread::sleep(Duration::from_millis(KEY_DELAY_MS));
-                keygen.key_up(enigo::Key::Layout(keys[note_idx]));
-
-                if *msg.note() >= MidiNote::C5 {
-                    keygen.key_up(enigo::Key::Shift);
-                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                } else if *msg.note() >= MidiNote::C3 {
-                    keygen.key_up(enigo::Key::Control);
-                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                }
-                return;
-            } else if *msg.event() == MidiEvent::NoteOff {
-                return;
-            }
-        }
-        // Pad buttons on top
-        else if msg.channel() == 9 {
-            if msg.note().index() >= 40 && msg.note().index() <= 43 {
-                if *msg.event() == MidiEvent::NoteOn {
-                    let keys = vec!['z', 'x', 'c', 'v'];
-                    let key_idx = ((msg.note().index() - 40) % 4) as usize;
-
-                    println!("Switching instruments...");
-                    keygen.key_down(enigo::Key::Escape);
-                    thread::sleep(Duration::from_millis(KEY_DELAY_MS));
-                    keygen.key_up(enigo::Key::Escape);
-
-                    thread::sleep(Duration::from_millis(SYS_DELAY_MS));
-
-                    keygen.key_down(enigo::Key::Control);
-                    keygen.key_down(enigo::Key::Alt);
-                    keygen.key_down(enigo::Key::Shift);
-                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                    keygen.key_down(enigo::Key::Layout(keys[key_idx]));
-                    thread::sleep(Duration::from_millis(KEY_DELAY_MS));
-                    keygen.key_up(enigo::Key::Layout(keys[key_idx]));
-                    thread::sleep(Duration::from_millis(MOD_DELAY_MS));
-                    keygen.key_up(enigo::Key::Control);
-                    keygen.key_up(enigo::Key::Alt);
-                    keygen.key_up(enigo::Key::Shift);
-                    return;
-                } else if *msg.event() == MidiEvent::NoteOff {
-                    return;
-                }
-            }
-        }
-        */
 }
 
 fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
-    let mut target_device_name = midi_name.to_owned();
-    let mut device_idx: Option<usize> = None;
-    let mut connection: Option<MidiInputConnection<()>> = None;
+    let mut midi_ports: HashMap<String, MidiInputConnection<()>> = HashMap::new();
     let app_state = AppState::new();
 
     //app_state.mappings().lock().unwrap().import("note_mappings.txt").ok();
     generate_old_mappings(&mut app_state.mappings().lock().unwrap());
 
     loop {
-        let mut midi_in = MidiInput::new("perform")?;
-        midi_in.ignore(Ignore::None);
+        let port_count = MidiInput::new("perform-count").expect("Couldn't create midi input").port_count();
 
-        // If the index of the device has changed, reset the connection
-        if let Some(idx) = device_idx {
+        let mut seen_names: HashMap<String, bool> = HashMap::new();
+
+        // Look through all available ports, and see if the name already has
+        // a corresponding closure in the callback table.
+        for idx in 0..port_count {
+            let mut midi_in = MidiInput::new("perform").expect("Couldn't create performance input");
             match midi_in.port_name(idx) {
-                Err(_) => {
-                    device_idx = None;
-                    connection = None;
-                }
-                Ok(val) => {
-                    if let Some(ref name) = target_device_name {
-                        if &val != name {
-                            device_idx = None;
-                            connection = None;
+                Err(_) => (),
+                Ok(name) => {
+                    seen_names.insert(name.clone(), true);
+                    // We have a name now.  See if it's in the closure table.
+                    if midi_ports.contains_key(&name) {
+                        continue;
+                    }
+
+                    // If we're looking for a particular device, return if it's not the one we've found.
+                    if let Some(ref target_name) = midi_name {
+                        if target_name != &name {
+                            continue;
                         }
                     }
-                },
-            }
-        } else {
-            device_idx = None;
-            connection = None;
-        };
 
-        // If there is no connection, try to create a new one.
-        if connection.is_none() {
-            match target_device_name {
-                None => println!("Connecting to first available device"),
-                Some(ref s) => println!("Looking for device {}", s),
-            }
-
-            for i in 0..midi_in.port_count() {
-                match midi_in.port_name(i) {
-                    Err(_) => (),
-                    Ok(name) => {
-                        match target_device_name {
-                            Some(ref s) => 
-                                if &name == s {
-                                    println!("Using device: {}", i);
-                                    device_idx = Some(i);
-                                },
-                            None => {
-                                println!("Using device: {}", i);
-                                device_idx = Some(i);
-                                target_device_name = Some(name);
-                            },
+                    // This device is new.
+                    midi_in.ignore(Ignore::None);
+                    let app_state_thr = app_state.clone();
+                    match midi_in.connect(
+                        idx,
+                        "key monitor",
+                        move |ts, raw_msg, _ignored| {
+                            midi_callback(ts, raw_msg, &app_state_thr);
+                        },
+                        (),
+                    ) {
+                        Err(reason) => println!("Unable to connect to device: {:?}", reason),
+                        Ok(conn) => {
+                            println!("Connection established to {}", name);
+                            midi_ports.insert(name, conn);
                         }
                     }
                 }
-                println!("    {}", midi_in.port_name(i)?);
             }
         }
 
-        if connection.is_none() {
-            if let Some(idx) = device_idx {
-                let app_state_thr = app_state.clone();
-                match midi_in.connect(
-                    idx,
-                    "key monitor",
-                    move |ts, raw_msg, _ignored| {
-                        midi_callback(ts, raw_msg, &app_state_thr);
-                    },
-                    (),
-                ) {
-                    Err(reason) => println!("Unable to connect to device: {:?}", reason),
-                    Ok(conn) => {
-                        println!("Connection established");
-                        connection = Some(conn);
-                    }
-                }
+        let mut to_delete = vec![];
+        for name in midi_ports.keys() {
+            if ! seen_names.contains_key(name) {
+                to_delete.push(name.clone());
             }
+        }
+        for name in to_delete {
+            println!("Disconnected from {}", name);
+            midi_ports.remove(&name);
         }
         thread::sleep(Duration::from_secs(1));
     }
