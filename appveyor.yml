@@ -47,7 +47,7 @@ before_deploy:
 deploy:
   artifact: /.*\.zip/
   auth_token:
-    secure: kKeVzQQ8Mhx3gMQENTiGqGtDECO2xmPBGrnp7cn92MstDcL14Pkzrbvl7Yr/fI3b
+    secure: 6eJOjWv2eburw+V4lUSkAN5OCs1fYr1C96WgULOZzgYDT7DLhC0oaaGuN9jeIw6z
   description: 'Automated release'
   on:
     # TODO Here you can pick which targets will generate binary releases
