@@ -15,8 +15,8 @@ environment:
   matrix:
     # MSVC
     - TARGET: x86_64-pc-windows-msvc
-    - TARGET: x86_64-pc-windows-msvc
-      RUST_VERSION: nightly
+#    - TARGET: x86_64-pc-windows-msvc
+#      RUST_VERSION: nightly
 
 install:
   - ps: >-
@@ -46,8 +46,9 @@ before_deploy:
 
 deploy:
   artifact: /.*\.zip/
+  release: midi-perform-v$(appveyor_build_version)
   auth_token:
-    secure: 6eJOjWv2eburw+V4lUSkAN5OCs1fYr1C96WgULOZzgYDT7DLhC0oaaGuN9jeIw6z
+    secure: '6eJOjWv2eburw+V4lUSkAN5OCs1fYr1C96WgULOZzgYDT7DLhC0oaaGuN9jeIw6z'
   description: 'Automated release'
   on:
     # TODO Here you can pick which targets will generate binary releases
