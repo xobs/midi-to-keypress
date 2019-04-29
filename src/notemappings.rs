@@ -240,7 +240,7 @@ impl NoteMappings {
     }
 
     pub fn add(&mut self, mapping: NoteMapping) {
-        ///Note: We need to remove old mappings here, too!
+        //Note: We need to remove old mappings here, too!
         self.mappings.push(mapping);
     }
 }

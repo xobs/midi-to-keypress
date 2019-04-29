@@ -7,7 +7,6 @@ extern crate midir;
 use std::error::Error;
 use std::time::Duration;
 use std::thread;
-use std::fmt::Write;
 use std::collections::HashMap;
 
 use clap::{App, Arg};
@@ -22,6 +21,9 @@ use appstate::AppState;
 
 mod notemappings;
 use notemappings::{Event, KbdKey, NoteMapping, NoteMappings};
+
+#[cfg(feature = "debug")]
+use std::fmt::Write;
 
 /// The amount of time to wait for a keyboard modifier to stick
 const MOD_DELAY_MS: u64 = 150;
@@ -125,13 +127,14 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
         }
     }
 
-    /*
-    let mut s = String::new();
-    for &byte in raw_message {
-        write!(&mut s, "{:X} ", byte).expect("Unable to write");
+    #[cfg(feature = "debug")]
+    {
+        let mut s = String::new();
+        for &byte in raw_message {
+            write!(&mut s, "{:X} ", byte).expect("Unable to write");
+        }
+        println!("Unhandled message for data: {}", s);
     }
-    println!("Unhandled message for data: {}", s);
-    */
 }
 
 fn generate_old_mappings(mappings: &mut NoteMappings) {
