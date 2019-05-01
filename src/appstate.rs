@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 extern crate enigo;
-use enigo::{Enigo, KeyboardControllable, Key};
+use enigo::{Enigo, KeyboardControllable};
 
 use notemappings::{NoteMappings, KbdKey};
 
