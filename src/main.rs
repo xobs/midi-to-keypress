@@ -201,7 +201,7 @@ fn generate_old_mappings(mappings: &mut NoteMappings) {
     }
 }
 
-fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
+fn run(midi_name: Option<String>) -> Result<(), Box<dyn Error>> {
     let mut midi_ports: HashMap<String, MidiInputConnection<()>> = HashMap::new();
     let app_state = AppState::new();
 
@@ -268,7 +268,7 @@ fn run(midi_name: Option<String>) -> Result<(), Box<Error>> {
     }
 }
 
-fn list_devices() -> Result<(), Box<Error>> {
+fn list_devices() -> Result<(), Box<dyn Error>> {
     let mut midi_in = MidiInput::new("perform")?;
     midi_in.ignore(Ignore::None);
 
