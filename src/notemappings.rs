@@ -17,12 +17,8 @@ pub enum KbdKey {
     Backspace,
     /// escape key (esc)
     Escape,
-    /// super key on linux (command key on macOS, windows key on Windows)
-    Super,
-    /// command key on macOS (super key on Linux, windows key on Windows)
-    Command,
-    /// windows key on Windows (super key on Linux, command key on macOS)
-    Windows,
+    /// super key on linux command key on macOS, windows key on Windows
+    Meta,
     /// shift key
     Shift,
     /// caps lock key
@@ -85,9 +81,7 @@ impl KbdKey {
             KbdKey::Space => Key::Space,
             KbdKey::Backspace => Key::Backspace,
             KbdKey::Escape => Key::Escape,
-            KbdKey::Super => Key::Super,
-            KbdKey::Command => Key::Command,
-            KbdKey::Windows => Key::Windows,
+            KbdKey::Meta => Key::Meta,
             KbdKey::Shift => Key::Shift,
             KbdKey::CapsLock => Key::CapsLock,
             KbdKey::Alt => Key::Alt,
