@@ -224,9 +224,9 @@ impl NoteMappings {
                 continue;
             }
             let note_txt = fields[0];
-            let channel_txt = fields[1];
-            let keydown_txt = fields[2];
-            let keyup_txt = fields[3];
+            let _channel_txt = fields[1];
+            let _keydown_txt = fields[2];
+            let _keyup_txt = fields[3];
             let note = MidiNote::new_from_text(&note_txt);
             println!("Got line: {}  Note: {:?}", l, note);
         }
