@@ -13,13 +13,13 @@ use clap::{App, Arg};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
-mod midi;
+pub mod midi;
 use midi::{MidiMessage, MidiEvent, MidiNote};
 
-mod appstate;
+pub mod appstate;
 use appstate::AppState;
 
-mod notemappings;
+pub mod notemappings;
 use notemappings::{Event, KbdKey, NoteMapping, NoteMappings};
 
 #[cfg(feature = "debug")]
