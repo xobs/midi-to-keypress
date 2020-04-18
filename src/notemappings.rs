@@ -215,7 +215,7 @@ impl NoteMappings {
 
     pub fn import(&mut self, filename: &str) -> Result<()> {
         let f = File::open(filename)?;
-        let mut buf_reader = BufReader::new(f);
+        let buf_reader = BufReader::new(f);
         for line in buf_reader.lines() {
             let l = line.unwrap();
             let fields: Vec<&str> = l.split(" ").collect();
