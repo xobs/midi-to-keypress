@@ -55,24 +55,28 @@ fn main() {
                 .help("Connect to specified device")
                 .value_name("DEVICE"),
         )
+        .arg(
+            Arg::with_name("mappings")
+                .short("f")
+                .long("mappings")
+                .help("Load a mappings file (line format: note channel keydown keyup)")
+                .value_name("MAPPINGS"),
+        )
         .get_matches();
 
     if matches.is_present("list") {
         list_devices().expect("unable to list MIDI devices");
         return;
     }
-
-    let device_name = match matches.value_of("device") {
-        Some(s) => Some(s.to_owned()),
-        None => None,
-    };
-    run(device_name).unwrap();
+    let device_name = matches.value_of("device");
+    let mappings_file = matches.value_of("mappings");
+    run(device_name, mappings_file).unwrap();
 }
 
 /// This function is called for every message that gets passed in.
 fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
     let mut keygen = app_state.keygen().lock().unwrap();
- 
+
     if let Ok(msg) = MidiMessage::new(raw_message) {
         if let Some(note_mapping) = app_state.mappings().lock().unwrap().find(msg.note(), msg.channel(), None) {
             let sequence = match msg.event() {
@@ -201,12 +205,14 @@ fn generate_old_mappings(mappings: &mut NoteMappings) {
     }
 }
 
-fn run(midi_name: Option<String>) -> Result<(), Box<dyn Error>> {
+fn run(midi_name: Option<&str>, mappings_file: Option<&str>) -> Result<(), Box<dyn Error>> {
     let mut midi_ports: HashMap<String, MidiInputConnection<()>> = HashMap::new();
     let app_state = AppState::new();
 
-    //app_state.mappings().lock().unwrap().import("note_mappings.txt").ok();
-    generate_old_mappings(&mut app_state.mappings().lock().unwrap());
+    match mappings_file {
+        Some(filename) => app_state.mappings().lock().unwrap().import(filename).unwrap(),
+        None => generate_old_mappings(&mut app_state.mappings().lock().unwrap())
+    };
 
     loop {
         let port_count = MidiInput::new("perform-count").expect("Couldn't create midi input").port_count();

@@ -224,11 +224,21 @@ impl NoteMappings {
                 continue;
             }
             let note_txt = fields[0];
-            let _channel_txt = fields[1];
-            let _keydown_txt = fields[2];
-            let _keyup_txt = fields[3];
-            let note = MidiNote::new_from_text(&note_txt);
-            println!("Got line: {}  Note: {:?}", l, note);
+            let channel_txt = fields[1];
+            let keydown_txt = fields[2];
+            let keyup_txt = fields[3];
+
+            let note = MidiNote::new_from_text(&note_txt).unwrap();
+            let channel = channel_txt.parse::<u8>().unwrap();
+            let keydown = keydown_txt.chars().next().unwrap();
+            let keyup = keyup_txt.chars().next().unwrap();
+
+            let mut mapping = NoteMapping::new(note, channel, None);
+            mapping.on = NoteMapping::down_event(keydown, None, None);
+            mapping.off = NoteMapping::up_event(keyup, None, None);
+
+            println!("Got line: {}  Mapping: {:?}", l, mapping);
+            self.add(mapping);
         }
         Ok(())
     }
