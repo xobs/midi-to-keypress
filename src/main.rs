@@ -235,17 +235,17 @@ fn run(midi_name: Option<&str>, mappings_file: Option<&str>) -> Result<(), Box<d
     };
 
     loop {
-        let port_count = MidiInput::new("perform-count")
+        let ports = MidiInput::new("perform-count")
             .expect("Couldn't create midi input")
-            .port_count();
+            .ports();
 
         let mut seen_names: HashMap<String, bool> = HashMap::new();
 
         // Look through all available ports, and see if the name already has
         // a corresponding closure in the callback table.
-        for idx in 0..port_count {
+        for port in ports {
             let mut midi_in = MidiInput::new("perform").expect("Couldn't create performance input");
-            match midi_in.port_name(idx) {
+            match midi_in.port_name(&port) {
                 Err(_) => (),
                 Ok(name) => {
                     seen_names.insert(name.clone(), true);
@@ -265,7 +265,7 @@ fn run(midi_name: Option<&str>, mappings_file: Option<&str>) -> Result<(), Box<d
                     midi_in.ignore(Ignore::None);
                     let app_state_thr = app_state.clone();
                     match midi_in.connect(
-                        idx,
+                        &port,
                         "key monitor",
                         move |ts, raw_msg, _ignored| {
                             midi_callback(ts, raw_msg, &app_state_thr);
@@ -301,8 +301,8 @@ fn list_devices() -> Result<(), Box<dyn Error>> {
     midi_in.ignore(Ignore::None);
 
     println!("Available MIDI devices:");
-    for i in 0..midi_in.port_count() {
-        println!("    {}", midi_in.port_name(i)?);
+    for port in midi_in.ports() {
+        println!("    {}", midi_in.port_name(&port)?);
     }
 
     Ok(())
