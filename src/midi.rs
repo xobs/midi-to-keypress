@@ -162,9 +162,10 @@ impl MidiNote {
         Ok(unsafe { mem::transmute(val)})
     }
 
-   pub fn new_from_text(txt: &str) -> Result<MidiNote, MidiError> {
+    #[allow(clippy::cognitive_complexity)]
+    pub fn new_from_text(txt: &str) -> Result<MidiNote, MidiError> {
         let s = txt.to_lowercase();
-        if s.starts_with("#") { Err(MidiError::Unparseable) }
+        if s.starts_with('#') { Err(MidiError::Unparseable) }
         else if s.starts_with("cn") { Ok(MidiNote::Cn) }
         else if s.starts_with("csn") { Ok(MidiNote::Csn) }
         else if s.starts_with("dn") { Ok(MidiNote::Dn) }
@@ -296,8 +297,8 @@ impl MidiNote {
         else {Err(MidiError::Unparseable) }
     }
 
-    pub fn index(&self) -> u8 {
-        *self as u8
+    pub fn index(self) -> u8 {
+        self as u8
     }
 }
 
@@ -324,10 +325,10 @@ impl MidiMessage {
                     MidiEvent::NoteOff
                 };
                 Ok(MidiMessage {
-                    event: event,
+                    event,
                     channel: message[0] & 0x0f,
                     note: MidiNote::new(message[1] & 0x7f)?,
-                    velocity: velocity,
+                    velocity,
                 })
             },
             _ => Err(MidiError::Unimplemented(message[0])),

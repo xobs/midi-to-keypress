@@ -1,7 +1,7 @@
 use enigo::Key;
-use midi::MidiNote;
-use std::io::{BufRead, BufReader, Result};
+use crate::midi::MidiNote;
 use std::fs::File;
+use std::io::{BufRead, BufReader, Result};
 
 /// Proxy for Enigo::Key, since that variant isn't cloneable
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -116,7 +116,7 @@ impl KbdKey {
 pub enum Event {
     /// Insert a Delay for a specified number of ms
     Delay(u64),
-    
+
     /// Press a key
     KeyDown(KbdKey),
 
@@ -148,13 +148,11 @@ pub struct NoteMapping {
 }
 
 impl NoteMapping {
-    pub fn new(note: MidiNote,
-               channel: u8,
-               instrument_name: Option<String>) -> NoteMapping {
+    pub fn new(note: MidiNote, channel: u8, instrument_name: Option<String>) -> NoteMapping {
         NoteMapping {
-            note: note,
-            channel: channel,
-            instrument_name: instrument_name,
+            note,
+            channel,
+            instrument_name,
             on: vec![],
             off: vec![],
         }
@@ -165,8 +163,7 @@ impl NoteMapping {
 
         if let Some(ref m) = modifier {
             v.push(Event::NoteMod(Some(m.clone())));
-        }
-        else {
+        } else {
             v.push(Event::NoteMod(None));
         }
 
@@ -177,37 +174,44 @@ impl NoteMapping {
 
     pub fn up_event(key: char, _modifier: Option<KbdKey>, _delay: Option<u64>) -> Vec<Event> {
         let mut v = vec![];
-/*
-        if let Some(ref m) = modifier {
-            v.push(Event::KeyUp(m.clone()));
-        }
+        /*
+                if let Some(ref m) = modifier {
+                    v.push(Event::KeyUp(m.clone()));
+                }
 
-        if let Some(d) = delay {
-            v.push(Event::Delay(d));
-        }
-*/
+                if let Some(d) = delay {
+                    v.push(Event::Delay(d));
+                }
+        */
         v.push(Event::KeyUp(KbdKey::Layout(key)));
 
         v
     }
 }
 
+#[derive(Default)]
 pub struct NoteMappings {
     mappings: Vec<NoteMapping>,
 }
 
 impl NoteMappings {
     pub fn new() -> NoteMappings {
-        NoteMappings { mappings: vec![] }
+        NoteMappings::default()
     }
 
     /// Find a mapping for a given note, if one exists
-    pub fn find(&self, note: &MidiNote, channel: u8, instrument_name: Option<String>) -> Option<NoteMapping> {
+    pub fn find(
+        &self,
+        note: MidiNote,
+        channel: u8,
+        instrument_name: Option<String>,
+    ) -> Option<NoteMapping> {
         for mapping in &self.mappings {
-            if mapping.note == *note && mapping.channel == channel {
-                if mapping.instrument_name == instrument_name {
-                    return Some(mapping.clone());
-                }
+            if mapping.note == note
+                && mapping.channel == channel
+                && mapping.instrument_name == instrument_name
+            {
+                return Some(mapping.clone());
             }
         }
         None
@@ -218,7 +222,7 @@ impl NoteMappings {
         let buf_reader = BufReader::new(f);
         for line in buf_reader.lines() {
             let l = line.unwrap();
-            let fields: Vec<&str> = l.split(" ").collect();
+            let fields: Vec<&str> = l.split(' ').collect();
             if fields.len() != 4 {
                 println!("Line is not 4 elements!");
                 continue;

@@ -4,8 +4,9 @@ use std::collections::HashMap;
 extern crate enigo;
 use enigo::{Enigo, KeyboardControllable};
 
-use notemappings::{NoteMappings, KbdKey};
+use crate::notemappings::{NoteMappings, KbdKey};
 
+#[derive(Default)]
 pub struct KeyGen {
     enigo: Enigo,
     key_state: HashMap<KbdKey, bool>,
@@ -13,17 +14,14 @@ pub struct KeyGen {
 
 impl KeyGen {
     pub fn new() -> KeyGen {
-        KeyGen {
-            enigo: Enigo::new(),
-            key_state: HashMap::new(),
-        }
+        KeyGen::default()
     }
 
     /// Press a given key.
     /// Returns `true` if an event was sent.
     pub fn key_down(&mut self, key: &KbdKey) -> bool {
         if let Some(val) = self.key_state.get(key) {
-            if *val == true {
+            if *val {
                 return false;
             }
         }
@@ -36,7 +34,7 @@ impl KeyGen {
     /// Returns `true` if an event was sent.
     pub fn key_up(&mut self, key: &KbdKey) -> bool {
         if let Some(val) = self.key_state.get(key) {
-            if *val == false {
+            if *val {
                 return false;
             }
         }
@@ -51,7 +49,7 @@ impl KeyGen {
         for (key, pressed) in &self.key_state {
             if *pressed {
                 self.enigo.key_up(KbdKey::to_enigo_key(key));
-                changes = changes + 1;
+                changes += 1;
             }
         }
 
@@ -61,7 +59,7 @@ impl KeyGen {
 }
 
 /// The object that gets passed to the MIDI callback, containing all our state
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AppState {
     keygen: Arc<Mutex<KeyGen>>,
     mappings: Arc<Mutex<NoteMappings>>,
@@ -69,10 +67,7 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> AppState {
-        AppState {
-            keygen: Arc::new(Mutex::new(KeyGen::new())),
-            mappings: Arc::new(Mutex::new(NoteMappings::new())),
-        }
+        AppState::default()
     }
 
     pub fn keygen(&self) -> &Arc<Mutex<KeyGen>> {
