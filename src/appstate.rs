@@ -34,7 +34,7 @@ impl KeyGen {
     /// Returns `true` if an event was sent.
     pub fn key_up(&mut self, key: &KbdKey) -> bool {
         if let Some(val) = self.key_state.get(key) {
-            if *val {
+            if !*val {
                 return false;
             }
         }
