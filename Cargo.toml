@@ -3,6 +3,7 @@ name = "miditran"
 version = "0.3.4"
 edition = "2018"
 authors = ["Sean Cross <sean@xobs.io>"]
+license = "Apache-2.0"
 
 [dependencies]
 clap = "2.33.1"
