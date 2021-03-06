@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 [dependencies]
 clap = "2.33.1"
-midir = "0.6.0"
+midir = "0.7.0"
 enigo = "0.0.14"
 
 [features]
