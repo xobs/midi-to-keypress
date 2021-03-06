@@ -18,7 +18,7 @@ jobs:
           override: true
 
       - name: Install ALSA dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxdo-dev
 
       - name: Build
         run: cargo build --all --release && strip target/release/miditran
