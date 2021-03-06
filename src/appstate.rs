@@ -1,14 +1,15 @@
+use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
-extern crate enigo;
 use enigo::{Enigo, KeyboardControllable};
+
+thread_local!(static ENIGO: RefCell<Enigo> = RefCell::new(Default::default()));
 
 use crate::notemappings::{NoteMappings, KbdKey};
 
 #[derive(Default)]
 pub struct KeyGen {
-    enigo: Enigo,
     key_state: HashMap<KbdKey, bool>,
 }
 
@@ -26,7 +27,7 @@ impl KeyGen {
             }
         }
         self.key_state.insert(key.clone(), true);
-        self.enigo.key_down(KbdKey::to_enigo_key(key));
+        ENIGO.with(|enigo| enigo.borrow_mut().key_down(KbdKey::to_enigo_key(key)));
         true
     }
 
@@ -38,7 +39,7 @@ impl KeyGen {
                 return false;
             }
         }
-        self.enigo.key_up(KbdKey::to_enigo_key(key));
+        ENIGO.with(|enigo| enigo.borrow_mut().key_up(KbdKey::to_enigo_key(key)));
         self.key_state.insert(key.clone(), false);
         true
     }
@@ -48,7 +49,7 @@ impl KeyGen {
         let mut changes = 0;
         for (key, pressed) in &self.key_state {
             if *pressed {
-                self.enigo.key_up(KbdKey::to_enigo_key(key));
+                ENIGO.with(|enigo| enigo.borrow_mut().key_up(KbdKey::to_enigo_key(key)));
                 changes += 1;
             }
         }
