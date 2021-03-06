@@ -21,14 +21,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxdo-dev
 
       - name: Build
-        run: cargo build --all --release && strip target/release/miditran
+        run: cargo build --all --release && strip target/release/miditran && (cd target/release; tar cvzf ../../miditran-linux-amd64.tar.gz miditran)
 
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            target/release/miditran
+            miditran-linux-amd64.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -73,13 +73,13 @@ jobs:
           override: true
 
       - name: Build for mac
-        run: cargo build --all --release && strip target/release/miditran
+        run: cargo build --all --release && strip target/release/miditran && (cd target/release && zip ../../miditran-macos.zip miditran)
 
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            target/release/miditran
+            miditran-macos.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
