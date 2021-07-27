@@ -5,7 +5,7 @@ use std::error::Error;
 use std::thread;
 use std::time::Duration;
 
-use clap::{App, Arg};
+use clap::{App, Arg, crate_version};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
@@ -35,7 +35,7 @@ const OCTAVE_DELAY_MS: u64 = 10;
 
 fn main() {
     let matches = App::new("Midi Perform")
-        .version("0.2.9")
+        .version(&*format!("v{}", crate_version!()))
         .author("Sean Cross <sean@xobs.io>")
         .about("Accepts MIDI controller data and simulates keyboard presses")
         .arg(
