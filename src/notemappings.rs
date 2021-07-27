@@ -173,8 +173,8 @@ impl NoteMapping {
     }
 
     pub fn up_event(key: char, _modifier: Option<KbdKey>, _delay: Option<u64>) -> Vec<Event> {
-        let mut v = vec![];
         /*
+        let mut v = vec![];
                 if let Some(ref m) = modifier {
                     v.push(Event::KeyUp(m.clone()));
                 }
@@ -182,10 +182,9 @@ impl NoteMapping {
                 if let Some(d) = delay {
                     v.push(Event::Delay(d));
                 }
+                v.push(Event::KeyUp(KbdKey::Layout(key)));
         */
-        v.push(Event::KeyUp(KbdKey::Layout(key)));
-
-        v
+        vec![Event::KeyUp(KbdKey::Layout(key))]
     }
 }
 
