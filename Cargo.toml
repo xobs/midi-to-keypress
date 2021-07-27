@@ -1,6 +1,6 @@
 [package]
 name = "miditran"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2018"
 authors = ["Sean Cross <sean@xobs.io>"]
 license = "Apache-2.0"
