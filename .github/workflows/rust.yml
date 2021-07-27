@@ -83,3 +83,4 @@ jobs:
             miditran-macos.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOSX_DEPLOYMENT_TARGET: 10.10
