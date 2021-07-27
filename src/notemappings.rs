@@ -1,5 +1,5 @@
-use enigo::Key;
 use crate::midi::MidiNote;
+use enigo::Key;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 

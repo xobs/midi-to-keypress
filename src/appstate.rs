@@ -1,12 +1,12 @@
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use enigo::{Enigo, KeyboardControllable};
 
 thread_local!(static ENIGO: RefCell<Enigo> = RefCell::new(Default::default()));
 
-use crate::notemappings::{NoteMappings, KbdKey};
+use crate::notemappings::{KbdKey, NoteMappings};
 
 #[derive(Default)]
 pub struct KeyGen {

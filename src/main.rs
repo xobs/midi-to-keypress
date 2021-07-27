@@ -5,7 +5,7 @@ use std::error::Error;
 use std::thread;
 use std::time::Duration;
 
-use clap::{App, Arg, crate_version};
+use clap::{crate_version, App, Arg};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
@@ -75,63 +75,64 @@ fn midi_callback(_timestamp_us: u64, raw_message: &[u8], app_state: &AppState) {
 
     if let Ok(msg) = MidiMessage::new(raw_message) {
         match app_state
-                        .mappings()
-                        .lock()
-                        .unwrap()
-                        .find(*msg.note(), msg.channel(), None) {
+            .mappings()
+            .lock()
+            .unwrap()
+            .find(*msg.note(), msg.channel(), None)
+        {
             Some(note_mapping) => {
-                    let sequence = match *msg.event() {
-                        MidiEvent::NoteOn => &note_mapping.on,
-                        MidiEvent::NoteOff => &note_mapping.off,
-                    };
+                let sequence = match *msg.event() {
+                    MidiEvent::NoteOn => &note_mapping.on,
+                    MidiEvent::NoteOff => &note_mapping.off,
+                };
 
-                    //println!("Found note mapping: {:?} for event {:?}, running sequence {:?}", note_mapping, msg.event(), sequence);
-                    for event in sequence {
-                        match *event {
-                            notemappings::Event::Delay(msecs) => {
-                                thread::sleep(Duration::from_millis(msecs))
-                            }
-                            notemappings::Event::KeyDown(ref k) => {
-                                keygen.key_down(&k);
-                            }
-                            notemappings::Event::KeyUp(ref k) => {
-                                keygen.key_up(&k);
-                            }
+                //println!("Found note mapping: {:?} for event {:?}, running sequence {:?}", note_mapping, msg.event(), sequence);
+                for event in sequence {
+                    match *event {
+                        notemappings::Event::Delay(msecs) => {
+                            thread::sleep(Duration::from_millis(msecs))
+                        }
+                        notemappings::Event::KeyDown(ref k) => {
+                            keygen.key_down(&k);
+                        }
+                        notemappings::Event::KeyUp(ref k) => {
+                            keygen.key_up(&k);
+                        }
 
-                            // For NoteMod, which goes at the top of a note, see if we need to change
-                            // the current set of modifiers.  If so, pause a short while.
-                            // This enables fast switching between notes in the same octave, where no
-                            // keychange is required.
-                            notemappings::Event::NoteMod(ref kopt) => {
-                                let mut changes = 0;
-                                let key_mods = vec![KbdKey::Shift, KbdKey::Control];
-                                if let Some(ref k) = *kopt {
-                                    for key_mod in key_mods {
-                                        if &key_mod == k {
-                                            if keygen.key_down(&key_mod) {
-                                                changes += 1;
-                                            }
-                                        } else if keygen.key_up(&key_mod) {
+                        // For NoteMod, which goes at the top of a note, see if we need to change
+                        // the current set of modifiers.  If so, pause a short while.
+                        // This enables fast switching between notes in the same octave, where no
+                        // keychange is required.
+                        notemappings::Event::NoteMod(ref kopt) => {
+                            let mut changes = 0;
+                            let key_mods = vec![KbdKey::Shift, KbdKey::Control];
+                            if let Some(ref k) = *kopt {
+                                for key_mod in key_mods {
+                                    if &key_mod == k {
+                                        if keygen.key_down(&key_mod) {
                                             changes += 1;
                                         }
-                                    }
-                                } else {
-                                    for key_mod in key_mods {
-                                        if keygen.key_up(&key_mod) {
-                                            changes += 1;
-                                        }
+                                    } else if keygen.key_up(&key_mod) {
+                                        changes += 1;
                                     }
                                 }
-                                if changes > 0 {
-                                    thread::sleep(Duration::from_millis(OCTAVE_DELAY_MS));
+                            } else {
+                                for key_mod in key_mods {
+                                    if keygen.key_up(&key_mod) {
+                                        changes += 1;
+                                    }
                                 }
+                            }
+                            if changes > 0 {
+                                thread::sleep(Duration::from_millis(OCTAVE_DELAY_MS));
                             }
                         }
                     }
                 }
+            }
             _ => {
-                    println!("No note mapping for {:?} @ {:?}", msg.note(), msg.channel());
-                }
+                println!("No note mapping for {:?} @ {:?}", msg.note(), msg.channel());
+            }
         }
     }
 
