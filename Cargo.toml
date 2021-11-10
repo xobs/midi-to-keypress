@@ -12,4 +12,5 @@ enigo = "0.0.14"
 
 [features]
 
+winrt = ["midir/winrt"]
 debug = []
